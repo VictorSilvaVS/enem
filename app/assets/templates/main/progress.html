@@ -1,0 +1,432 @@
+{% extends "base.html" %}
+
+{% block title %}Meu Progresso - Sistema de Estudos ENEM{% endblock %}
+
+{% block extra_css %}
+<style>
+    .progress-card {
+        border-left: 4px solid #007bff;
+        transition: transform 0.2s;
+    }
+    .progress-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .progress-circle {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: white;
+        font-size: 1.5rem;
+        margin: 0 auto;
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin: 1rem 0;
+    }
+    .stat-card {
+        text-align: center;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        margin-bottom: 1rem;
+    }
+    .stat-card h3 {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+    .stat-card p {
+        margin-bottom: 0;
+        opacity: 0.9;
+    }
+    .subject-progress {
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    .session-card {
+        border-left: 4px solid #28a745;
+        margin-bottom: 1rem;
+    }
+    .achievement-badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        border-radius: 2rem;
+        background-color: #ffc107;
+        color: #212529;
+        font-weight: bold;
+        margin: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Meu Progresso</li>
+                </ol>
+            </nav>
+            
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h1 class="h2 mb-1">Meu Progresso</h1>
+                    <p class="text-muted mb-0">Acompanhe seu desenvolvimento nos estudos</p>
+                </div>
+                <div class="text-end">
+                    <button class="btn btn-outline-primary" onclick="window.print()">
+                        <i class="fas fa-print me-1"></i>
+                        Imprimir Relatório
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas Gerais -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h3>{{ total_study_time }}</h3>
+                <p>Horas de Estudo</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <h3>{{ total_quizzes }}</h3>
+                <p>Quizzes Realizados</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <h3>{{ completed_materials }}</h3>
+                <p>Materiais Concluídos</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <h3>{{ average_score }}%</h3>
+                <p>Nota Média</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progresso Geral -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        Progresso Geral
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="progress-circle mb-3" style="background-color: #007bff;">
+                        {{ overall_progress }}%
+                    </div>
+                    <h6>Progresso Geral</h6>
+                    <p class="text-muted">Baseado em todos os tópicos estudados</p>
+                    
+                    <div class="progress mb-3" style="height: 20px;">
+                        <div class="progress-bar" role="progressbar" 
+                             style="width: {{ overall_progress }}%; background-color: #007bff;"
+                             aria-valuenow="{{ overall_progress }}" 
+                             aria-valuemin="0" aria-valuemax="100">
+                            {{ overall_progress }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Desempenho por Área
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progresso por Matéria -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-book me-2"></i>
+                        Progresso por Matéria
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if subject_progress %}
+                        <div class="row">
+                            {% for subject, progress in subject_progress.items() %}
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card progress-card">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <div class="me-3">
+                                                <i class="fas fa-book fa-2x" style="color: #007bff;"></i>
+                                            </div>
+                                            <div>
+                                                <h6 class="card-title mb-0">{{ subject }}</h6>
+                                                <small class="text-muted">{{ progress.topics_completed }} tópicos</small>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="progress mb-2" style="height: 8px;">
+                                            <div class="progress-bar" role="progressbar" 
+                                                 style="width: {{ progress.percentage }}%; background-color: #007bff;"
+                                                 aria-valuenow="{{ progress.percentage }}" 
+                                                 aria-valuemin="0" aria-valuemax="100">
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <small class="text-muted">{{ progress.percentage }}% completo</small>
+                                            <small class="text-muted">{{ progress.materials_completed }}/{{ progress.total_materials }} materiais</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nenhum progresso registrado</h5>
+                            <p class="text-muted">Comece a estudar para ver seu progresso aqui.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sessões de Estudo Recentes -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        Sessões de Estudo Recentes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_sessions %}
+                        {% for session in recent_sessions %}
+                        <div class="card session-card">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="card-title">{{ session.topic.name }}</h6>
+                                        <p class="card-text text-muted mb-1">{{ session.subject.name }}</p>
+                                        <small class="text-muted">
+                                            <i class="fas fa-clock me-1"></i>
+                                            {{ session.start_time.strftime('%d/%m/%Y %H:%M') }}
+                                        </small>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="badge bg-success">{{ session.duration_minutes }}min</span>
+                                        {% if session.completed %}
+                                        <span class="badge bg-primary ms-1">Concluído</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-clock fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nenhuma sessão registrada</h5>
+                            <p class="text-muted">Suas sessões de estudo aparecerão aqui.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-trophy me-2"></i>
+                        Conquistas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if achievements %}
+                        {% for achievement in achievements %}
+                        <div class="achievement-badge">
+                            <i class="fas fa-medal me-1"></i>
+                            {{ achievement.name }}
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-trophy fa-3x text-muted mb-3"></i>
+                            <h6 class="text-muted">Nenhuma conquista ainda</h6>
+                            <p class="text-muted small">Continue estudando para desbloquear conquistas!</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Dicas de Melhoria -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        Dicas para Melhorar
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            Estude por pelo menos 30 minutos por dia
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            Faça pausas regulares durante os estudos
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            Revise o conteúdo periodicamente
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i>
+                            Pratique com quizzes regularmente
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico de Atividade -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-calendar me-2"></i>
+                        Atividade dos Últimos 7 Dias
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="activityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Gráfico de desempenho por área
+    const performanceCtx = document.getElementById('performanceChart').getContext('2d');
+    const performanceChart = new Chart(performanceCtx, {
+        type: 'radar',
+        data: {
+            labels: {{ subject_names|tojson }},
+            datasets: [{
+                label: 'Desempenho',
+                data: {{ subject_scores|tojson }},
+                backgroundColor: 'rgba(0, 123, 255, 0.2)',
+                borderColor: 'rgba(0, 123, 255, 1)',
+                borderWidth: 2,
+                pointBackgroundColor: 'rgba(0, 123, 255, 1)',
+                pointBorderColor: '#fff',
+                pointHoverBackgroundColor: '#fff',
+                pointHoverBorderColor: 'rgba(0, 123, 255, 1)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                r: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        stepSize: 20
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+
+    // Gráfico de atividade
+    const activityCtx = document.getElementById('activityChart').getContext('2d');
+    const activityChart = new Chart(activityCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ activity_dates|tojson }},
+            datasets: [{
+                label: 'Minutos de Estudo',
+                data: {{ activity_minutes|tojson }},
+                backgroundColor: 'rgba(0, 123, 255, 0.8)',
+                borderColor: 'rgba(0, 123, 255, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Minutos'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Data'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

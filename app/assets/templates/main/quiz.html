@@ -1,0 +1,429 @@
+{% extends "base.html" %}
+
+{% block title %}Quiz - {{ topic.name }} - Sistema de Estudos ENEM{% endblock %}
+
+{% block extra_css %}
+<style>
+    .question-card {
+        border-left: 4px solid {{ topic.subject.color }};
+        margin-bottom: 2rem;
+    }
+    .answer-option {
+        border: 2px solid #e9ecef;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .answer-option:hover {
+        border-color: {{ topic.subject.color }};
+        background-color: #f8f9fa;
+    }
+    .answer-option.selected {
+        border-color: {{ topic.subject.color }};
+        background-color: {{ topic.subject.color }};
+        color: white;
+    }
+    .answer-option.correct {
+        border-color: #28a745;
+        background-color: #28a745;
+        color: white;
+    }
+    .answer-option.incorrect {
+        border-color: #dc3545;
+        background-color: #dc3545;
+        color: white;
+    }
+    .timer-display {
+        background-color: {{ topic.subject.color }};
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 2rem;
+        font-size: 1.1rem;
+        font-weight: bold;
+    }
+    .progress-bar-custom {
+        height: 8px;
+        background-color: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .progress-fill {
+        height: 100%;
+        background-color: {{ topic.subject.color }};
+        transition: width 0.3s ease;
+    }
+    .question-navigation {
+        position: fixed;
+        top: 50%;
+        right: 2rem;
+        transform: translateY(-50%);
+        z-index: 1000;
+    }
+    .nav-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: #e9ecef;
+        margin: 0.5rem 0;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .nav-dot.answered {
+        background-color: {{ topic.subject.color }};
+    }
+    .nav-dot.current {
+        background-color: #007bff;
+        transform: scale(1.2);
+    }
+    .quiz-header {
+        position: sticky;
+        top: 0;
+        background-color: white;
+        z-index: 100;
+        border-bottom: 1px solid #e9ecef;
+        padding: 1rem 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header do Quiz -->
+    <div class="quiz-header">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                        <li class="breadcrumb-item"><a href="{{ url_for('main.topic_detail', topic_id=topic.id) }}">{{ topic.name }}</a></li>
+                        <li class="breadcrumb-item active">Quiz</li>
+                    </ol>
+                </nav>
+                <h4 class="mb-0 mt-2">{{ topic.name }} - Quiz</h4>
+            </div>
+            <div class="col-md-6 text-end">
+                <div class="d-flex justify-content-end align-items-center">
+                    <div class="me-3">
+                        <div class="progress-bar-custom">
+                            <div class="progress-fill" id="progressBar" style="width: 0%"></div>
+                        </div>
+                        <small class="text-muted">Questão <span id="currentQuestion">1</span> de {{ questions|length }}</small>
+                    </div>
+                    <div class="timer-display" id="timerDisplay">
+                        <i class="fas fa-clock me-1"></i>
+                        <span id="timer">00:00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navegação das questões -->
+    <div class="question-navigation">
+        {% for i in range(questions|length) %}
+        <div class="nav-dot" onclick="goToQuestion({{ i }})" id="navDot{{ i }}"></div>
+        {% endfor %}
+    </div>
+
+    <!-- Conteúdo do Quiz -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <form id="quizForm">
+                {% for question in questions %}
+                <div class="question-container" id="question{{ loop.index0 }}" style="display: {% if loop.first %}block{% else %}none{% endif %};">
+                    <div class="card question-card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-question-circle me-2"></i>
+                                Questão {{ loop.index }}
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="question-text mb-4">
+                                <h6>{{ question.question_text }}</h6>
+                            </div>
+                            
+                            <div class="answer-options">
+                                {% for answer in question.answers %}
+                                <div class="answer-option" onclick="selectAnswer({{ loop.parent.index0 }}, {{ loop.index0 }})" 
+                                     data-question="{{ loop.parent.index0 }}" data-answer="{{ loop.index0 }}">
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-3">
+                                            <span class="badge bg-secondary">{{ loop.index }}</span>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            {{ answer.answer_text }}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            
+                            <!-- Explicação (aparece após responder) -->
+                            <div class="explanation mt-4" id="explanation{{ loop.index0 }}" style="display: none;">
+                                <div class="alert alert-info">
+                                    <h6><i class="fas fa-lightbulb me-2"></i>Explicação:</h6>
+                                    <p class="mb-0">{{ question.explanation or 'Explicação não disponível.' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Navegação entre questões -->
+                    <div class="d-flex justify-content-between mt-4">
+                        <button type="button" class="btn btn-secondary" onclick="previousQuestion()" 
+                                id="prevBtn{{ loop.index0 }}" {% if loop.first %}disabled{% endif %}>
+                            <i class="fas fa-chevron-left me-1"></i>
+                            Anterior
+                        </button>
+                        
+                        {% if loop.last %}
+                        <button type="button" class="btn btn-success" onclick="finishQuiz()" id="finishBtn">
+                            <i class="fas fa-check me-1"></i>
+                            Finalizar Quiz
+                        </button>
+                        {% else %}
+                        <button type="button" class="btn btn-primary" onclick="nextQuestion()" id="nextBtn{{ loop.index0 }}">
+                            Próxima
+                            <i class="fas fa-chevron-right ms-1"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmação de finalização -->
+<div class="modal fade" id="finishModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Finalizar Quiz</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja finalizar o quiz?</p>
+                <div class="row text-center">
+                    <div class="col-4">
+                        <h6 class="text-primary" id="modalAnswered">0</h6>
+                        <small class="text-muted">Respondidas</small>
+                    </div>
+                    <div class="col-4">
+                        <h6 class="text-warning" id="modalTime">00:00</h6>
+                        <small class="text-muted">Tempo</small>
+                    </div>
+                    <div class="col-4">
+                        <h6 class="text-info" id="modalProgress">0%</h6>
+                        <small class="text-muted">Progresso</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Continuar</button>
+                <button type="button" class="btn btn-success" onclick="submitQuiz()">Finalizar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentQuestionIndex = 0;
+    let answers = {};
+    let startTime = new Date();
+    let timerInterval;
+    let totalQuestions = {{ questions|length }};
+    
+    // Inicializar quiz
+    document.addEventListener('DOMContentLoaded', function() {
+        startTimer();
+        updateProgress();
+        updateNavigation();
+    });
+    
+    // Timer
+    function startTimer() {
+        timerInterval = setInterval(updateTimer, 1000);
+    }
+    
+    function updateTimer() {
+        const now = new Date();
+        const timeSpent = Math.floor((now - startTime) / 1000);
+        const minutes = Math.floor(timeSpent / 60);
+        const seconds = timeSpent % 60;
+        
+        document.getElementById('timer').textContent = 
+            `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    
+    // Navegação
+    function goToQuestion(index) {
+        if (index >= 0 && index < totalQuestions) {
+            document.getElementById('question' + currentQuestionIndex).style.display = 'none';
+            document.getElementById('question' + index).style.display = 'block';
+            currentQuestionIndex = index;
+            
+            updateNavigation();
+            updateProgress();
+            updateButtons();
+        }
+    }
+    
+    function nextQuestion() {
+        if (currentQuestionIndex < totalQuestions - 1) {
+            goToQuestion(currentQuestionIndex + 1);
+        }
+    }
+    
+    function previousQuestion() {
+        if (currentQuestionIndex > 0) {
+            goToQuestion(currentQuestionIndex - 1);
+        }
+    }
+    
+    // Seleção de resposta
+    function selectAnswer(questionIndex, answerIndex) {
+        // Remover seleção anterior
+        const questionContainer = document.querySelector(`[data-question="${questionIndex}"]`).parentElement;
+        questionContainer.querySelectorAll('.answer-option').forEach(option => {
+            option.classList.remove('selected');
+        });
+        
+        // Selecionar nova resposta
+        const selectedOption = document.querySelector(`[data-question="${questionIndex}"][data-answer="${answerIndex}"]`);
+        selectedOption.classList.add('selected');
+        
+        // Salvar resposta
+        answers[questionIndex] = answerIndex;
+        
+        // Mostrar explicação
+        document.getElementById('explanation' + questionIndex).style.display = 'block';
+        
+        // Atualizar navegação
+        updateNavigation();
+        updateProgress();
+    }
+    
+    // Atualizar navegação
+    function updateNavigation() {
+        // Atualizar dots de navegação
+        for (let i = 0; i < totalQuestions; i++) {
+            const dot = document.getElementById('navDot' + i);
+            dot.classList.remove('answered', 'current');
+            
+            if (i === currentQuestionIndex) {
+                dot.classList.add('current');
+            } else if (answers[i] !== undefined) {
+                dot.classList.add('answered');
+            }
+        }
+    }
+    
+    // Atualizar progresso
+    function updateProgress() {
+        const answeredCount = Object.keys(answers).length;
+        const progress = (answeredCount / totalQuestions) * 100;
+        
+        document.getElementById('progressBar').style.width = progress + '%';
+        document.getElementById('currentQuestion').textContent = currentQuestionIndex + 1;
+    }
+    
+    // Atualizar botões
+    function updateButtons() {
+        // Botão anterior
+        const prevBtn = document.getElementById('prevBtn' + currentQuestionIndex);
+        if (prevBtn) {
+            prevBtn.disabled = currentQuestionIndex === 0;
+        }
+        
+        // Botão próximo
+        const nextBtn = document.getElementById('nextBtn' + currentQuestionIndex);
+        if (nextBtn) {
+            nextBtn.disabled = currentQuestionIndex === totalQuestions - 1;
+        }
+    }
+    
+    // Finalizar quiz
+    function finishQuiz() {
+        const answeredCount = Object.keys(answers).length;
+        const progress = Math.round((answeredCount / totalQuestions) * 100);
+        const timeSpent = document.getElementById('timer').textContent;
+        
+        document.getElementById('modalAnswered').textContent = answeredCount;
+        document.getElementById('modalTime').textContent = timeSpent;
+        document.getElementById('modalProgress').textContent = progress + '%';
+        
+        const modal = new bootstrap.Modal(document.getElementById('finishModal'));
+        modal.show();
+    }
+    
+    // Submeter quiz
+    function submitQuiz() {
+        const timeSpent = document.getElementById('timer').textContent;
+        
+        fetch('{{ url_for("main.submit_quiz", quiz_attempt_id=quiz_attempt.id) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                answers: answers,
+                time_spent: timeSpent
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Redirecionar para resultados
+                window.location.href = data.redirect_url;
+            } else {
+                alert('Erro ao submeter quiz: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao submeter quiz');
+        });
+    }
+    
+    // Atalhos de teclado
+    document.addEventListener('keydown', function(e) {
+        switch(e.key) {
+            case 'ArrowLeft':
+                if (currentQuestionIndex > 0) {
+                    previousQuestion();
+                }
+                break;
+            case 'ArrowRight':
+                if (currentQuestionIndex < totalQuestions - 1) {
+                    nextQuestion();
+                }
+                break;
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+                const answerIndex = parseInt(e.key) - 1;
+                if (answerIndex >= 0 && answerIndex < 4) {
+                    selectAnswer(currentQuestionIndex, answerIndex);
+                }
+                break;
+        }
+    });
+    
+    // Aviso antes de sair
+    window.addEventListener('beforeunload', function(e) {
+        if (Object.keys(answers).length > 0) {
+            e.preventDefault();
+            e.returnValue = 'Tem certeza que deseja sair? Seu progresso será perdido.';
+        }
+    });
+</script>
+{% endblock %}

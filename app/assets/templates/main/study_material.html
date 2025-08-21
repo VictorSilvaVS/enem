@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+
+{% block title %}{{ material.title }} - Sistema de Estudos ENEM{% endblock %}
+
+{% block extra_css %}
+<style>
+    .material-content {
+        line-height: 1.8;
+        font-size: 1.1rem;
+    }
+    .material-content h2, .material-content h3 {
+        color: {{ material.topic.subject.color }};
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+    }
+    .material-content p {
+        margin-bottom: 1.5rem;
+    }
+    .material-content ul, .material-content ol {
+        margin-bottom: 1.5rem;
+        padding-left: 2rem;
+    }
+    .material-content li {
+        margin-bottom: 0.5rem;
+    }
+    .material-content blockquote {
+        border-left: 4px solid {{ material.topic.subject.color }};
+        padding-left: 1rem;
+        margin: 1.5rem 0;
+        font-style: italic;
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.25rem;
+    }
+    .material-content code {
+        background-color: #f8f9fa;
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.25rem;
+        font-family: 'Courier New', monospace;
+    }
+    .material-content pre {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.25rem;
+        overflow-x: auto;
+        margin: 1.5rem 0;
+    }
+    .reading-progress {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 0%;
+        height: 3px;
+        background-color: {{ material.topic.subject.color }};
+        z-index: 1000;
+        transition: width 0.3s ease;
+    }
+    .floating-actions {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        z-index: 1000;
+    }
+    .floating-actions .btn {
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 1rem;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    .timer-display {
+        background-color: rgba(0,0,0,0.8);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 2rem;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Barra de progresso de leitura -->
+<div class="reading-progress" id="readingProgress"></div>
+
+<!-- Ações flutuantes -->
+<div class="floating-actions">
+    <div class="timer-display" id="timerDisplay">
+        <i class="fas fa-clock me-1"></i>
+        <span id="timer">00:00</span>
+    </div>
+    <button class="btn btn-primary" id="completeBtn" onclick="completeMaterial()" title="Marcar como concluído">
+        <i class="fas fa-check"></i>
+    </button>
+    <button class="btn btn-secondary" onclick="window.print()" title="Imprimir">
+        <i class="fas fa-print"></i>
+    </button>
+</div>
+
+<div class="container-fluid">
+    <!-- Header do material -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.subjects') }}">Matérias</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.subject_detail', subject_id=material.topic.subject.id) }}">{{ material.topic.subject.name }}</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.topic_detail', topic_id=material.topic.id) }}">{{ material.topic.name }}</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ material.title }}</li>
+                </ol>
+            </nav>
+            
+            <div class="d-flex align-items-center mb-3">
+                <div class="me-3">
+                    <i class="fas fa-{{ material.topic.subject.icon }} fa-2x" style="color: {{ material.topic.subject.color }};"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <h1 class="h2 mb-1">{{ material.title }}</h1>
+                    <p class="text-muted mb-0">{{ material.topic.name }} - {{ material.topic.subject.name }}</p>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-secondary">
+                        Nível {{ material.difficulty_level }}
+                    </span>
+                    <br>
+                    <small class="text-muted">{{ material.estimated_time }}min estimados</small>
+                </div>
+            </div>
+            
+            <!-- Informações do material -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary">{{ material.material_type|title }}</h6>
+                            <p class="card-text">Tipo</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h6 class="card-title text-success">{{ material.estimated_time }}min</h6>
+                            <p class="card-text">Tempo Estimado</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h6 class="card-title text-warning" id="timeSpent">00:00</h6>
+                            <p class="card-text">Tempo Gasto</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h6 class="card-title text-info" id="readingProgressPercent">0%</h6>
+                            <p class="card-text">Progresso</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conteúdo do material -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-book-open me-2"></i>
+                        Conteúdo
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="material-content" id="materialContent">
+                        {{ material.content|safe }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ações após leitura -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-arrow-right me-2"></i>
+                        Próximos Passos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center mb-3">
+                            <div class="p-3">
+                                <i class="fas fa-edit fa-2x text-primary mb-2"></i>
+                                <h6>Faça Anotações</h6>
+                                <p class="text-muted small">Escreva os pontos principais para revisar depois</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center mb-3">
+                            <div class="p-3">
+                                <i class="fas fa-question-circle fa-2x text-success mb-2"></i>
+                                <h6>Teste seu Conhecimento</h6>
+                                <p class="text-muted small">Responda algumas questões sobre o conteúdo</p>
+                                <a href="{{ url_for('main.start_quiz', topic_id=material.topic.id) }}" 
+                                   class="btn btn-success btn-sm">
+                                    Fazer Quiz
+                                </a>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center mb-3">
+                            <div class="p-3">
+                                <i class="fas fa-check-circle fa-2x text-warning mb-2"></i>
+                                <h6>Marque como Concluído</h6>
+                                <p class="text-muted small">Registre seu progresso no sistema</p>
+                                <button class="btn btn-warning btn-sm" onclick="completeMaterial()">
+                                    Concluir Material
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dicas de estudo -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        Dicas para este Material
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-eye me-2 text-primary"></i>Durante a Leitura</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success me-2"></i>Leia com atenção e sem pressa</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Destaque pontos importantes</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Faça pausas quando necessário</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Reflita sobre o conteúdo</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-brain me-2 text-warning"></i>Após a Leitura</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success me-2"></i>Resuma os principais conceitos</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Teste com exercícios</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Revise em 24 horas</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Pratique regularmente</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmação -->
+<div class="modal fade" id="completeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Concluir Material</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja marcar este material como concluído?</p>
+                <p><strong>Tempo gasto:</strong> <span id="modalTimeSpent">00:00</span></p>
+                <p><strong>Progresso de leitura:</strong> <span id="modalProgress">0%</span></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="confirmComplete()">Confirmar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let startTime = new Date();
+    let timerInterval;
+    let readingProgress = 0;
+    
+    // Inicializar timer
+    function startTimer() {
+        timerInterval = setInterval(updateTimer, 1000);
+    }
+    
+    // Atualizar timer
+    function updateTimer() {
+        const now = new Date();
+        const timeSpent = Math.floor((now - startTime) / 1000);
+        const minutes = Math.floor(timeSpent / 60);
+        const seconds = timeSpent % 60;
+        
+        document.getElementById('timer').textContent = 
+            `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        document.getElementById('timeSpent').textContent = 
+            `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    
+    // Calcular progresso de leitura
+    function calculateReadingProgress() {
+        const content = document.getElementById('materialContent');
+        const scrollTop = window.pageYOffset;
+        const contentHeight = content.offsetHeight;
+        const windowHeight = window.innerHeight;
+        
+        if (contentHeight > windowHeight) {
+            readingProgress = Math.min(100, Math.max(0, 
+                (scrollTop / (contentHeight - windowHeight)) * 100));
+        } else {
+            readingProgress = 100;
+        }
+        
+        document.getElementById('readingProgress').style.width = readingProgress + '%';
+        document.getElementById('readingProgressPercent').textContent = Math.round(readingProgress) + '%';
+    }
+    
+    // Marcar material como concluído
+    function completeMaterial() {
+        const timeSpent = document.getElementById('timeSpent').textContent;
+        const progress = document.getElementById('readingProgressPercent').textContent;
+        
+        document.getElementById('modalTimeSpent').textContent = timeSpent;
+        document.getElementById('modalProgress').textContent = progress;
+        
+        const modal = new bootstrap.Modal(document.getElementById('completeModal'));
+        modal.show();
+    }
+    
+    // Confirmar conclusão
+    function confirmComplete() {
+        const timeSpent = document.getElementById('timeSpent').textContent;
+        
+        fetch('{{ url_for("main.complete_material", material_id=material.id) }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                time_spent: timeSpent,
+                progress: readingProgress
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Fechar modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('completeModal'));
+                modal.hide();
+                
+                // Mostrar mensagem de sucesso
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-success alert-dismissible fade show';
+                alert.innerHTML = `
+                    <i class="fas fa-check-circle me-2"></i>
+                    Material marcado como concluído com sucesso!
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                document.querySelector('.container-fluid').insertBefore(alert, document.querySelector('.row'));
+                
+                // Desabilitar botão
+                document.getElementById('completeBtn').disabled = true;
+                document.getElementById('completeBtn').innerHTML = '<i class="fas fa-check-double"></i>';
+                document.getElementById('completeBtn').title = 'Material concluído';
+            } else {
+                alert('Erro ao marcar material como concluído: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao marcar material como concluído');
+        });
+    }
+    
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        startTimer();
+        calculateReadingProgress();
+        
+        window.addEventListener('scroll', calculateReadingProgress);
+        window.addEventListener('resize', calculateReadingProgress);
+    });
+    
+    // Pausar timer quando a aba não estiver visível
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            clearInterval(timerInterval);
+        } else {
+            startTimer();
+        }
+    });
+</script>
+{% endblock %}

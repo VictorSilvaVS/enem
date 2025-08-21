@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+
+{% block title %}Painel Administrativo - Sistema de Estudos ENEM{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-card {
+        transition: transform 0.2s;
+        border-left: 4px solid #dc3545;
+    }
+    .admin-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .stat-card {
+        text-align: center;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        margin-bottom: 1rem;
+    }
+    .stat-card h3 {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+    .stat-card p {
+        margin-bottom: 0;
+        opacity: 0.9;
+    }
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin: 1rem 0;
+    }
+    .user-table {
+        font-size: 0.9rem;
+    }
+    .user-table th {
+        background-color: #f8f9fa;
+        border-top: none;
+    }
+    .status-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Painel Administrativo</li>
+                </ol>
+            </nav>
+            
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h1 class="h2 mb-1">
+                        <i class="fas fa-shield-alt me-2 text-danger"></i>
+                        Painel Administrativo
+                    </h1>
+                    <p class="text-muted mb-0">Gerencie o sistema de estudos ENEM</p>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-danger">Administrador</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas Gerais -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <h3>{{ total_users }}</h3>
+                <p>Usuários Registrados</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <h3>{{ total_subjects }}</h3>
+                <p>Matérias Cadastradas</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <h3>{{ total_materials }}</h3>
+                <p>Materiais de Estudo</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <h3>{{ total_questions }}</h3>
+                <p>Questões Disponíveis</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficos e Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        Usuários por Status
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="userStatusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Atividade dos Últimos 7 Dias
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="activityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Usuários Recentes -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-users me-2"></i>
+                        Usuários Recentes
+                    </h5>
+                    <a href="#" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus me-1"></i>
+                        Adicionar Usuário
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover user-table">
+                            <thead>
+                                <tr>
+                                    <th>Usuário</th>
+                                    <th>Email</th>
+                                    <th>Status</th>
+                                    <th>Último Login</th>
+                                    <th>Registro</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in recent_users %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-sm me-2">
+                                                <i class="fas fa-user-circle fa-2x text-muted"></i>
+                                            </div>
+                                            <div>
+                                                <strong>{{ user.first_name }} {{ user.last_name }}</strong>
+                                                <br>
+                                                <small class="text-muted">@{{ user.username }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ user.email }}</td>
+                                    <td>
+                                        {% if user.is_active %}
+                                        <span class="badge bg-success status-badge">Ativo</span>
+                                        {% else %}
+                                        <span class="badge bg-danger status-badge">Inativo</span>
+                                        {% endif %}
+                                        
+                                        {% if user.is_admin %}
+                                        <span class="badge bg-warning status-badge ms-1">Admin</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user.last_login %}
+                                        <small>{{ user.last_login.strftime('%d/%m/%Y %H:%M') }}</small>
+                                        {% else %}
+                                        <small class="text-muted">Nunca</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>{{ user.created_at.strftime('%d/%m/%Y') }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-outline-warning" title="Suspender">
+                                                <i class="fas fa-ban"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger" title="Excluir">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ações Administrativas -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card admin-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-cog me-2"></i>
+                        Gerenciamento de Conteúdo
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <a href="#" class="btn btn-outline-primary w-100">
+                                <i class="fas fa-book me-2"></i>
+                                Gerenciar Matérias
+                            </a>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <a href="#" class="btn btn-outline-success w-100">
+                                <i class="fas fa-list me-2"></i>
+                                Gerenciar Tópicos
+                            </a>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <a href="#" class="btn btn-outline-warning w-100">
+                                <i class="fas fa-file-alt me-2"></i>
+                                Gerenciar Materiais
+                            </a>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <a href="#" class="btn btn-outline-info w-100">
+                                <i class="fas fa-question-circle me-2"></i>
+                                Gerenciar Questões
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card admin-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Relatórios e Analytics
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <a href="#" class="btn btn-outline-primary w-100">
+                                <i class="fas fa-users me-2"></i>
+                                Relatório de Usuários
+                            </a>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <a href="#" class="btn btn-outline-success w-100">
+                                <i class="fas fa-chart-bar me-2"></i>
+                                Estatísticas de Uso
+                            </a>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <a href="#" class="btn btn-outline-warning w-100">
+                                <i class="fas fa-download me-2"></i>
+                                Exportar Dados
+                            </a>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <a href="#" class="btn btn-outline-info w-100">
+                                <i class="fas fa-cog me-2"></i>
+                                Configurações
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logs do Sistema -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-list-alt me-2"></i>
+                        Logs do Sistema
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Data/Hora</th>
+                                    <th>Usuário</th>
+                                    <th>Ação</th>
+                                    <th>Detalhes</th>
+                                    <th>IP</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in system_logs %}
+                                <tr>
+                                    <td>
+                                        <small>{{ log.timestamp.strftime('%d/%m/%Y %H:%M:%S') }}</small>
+                                    </td>
+                                    <td>
+                                        <small>{{ log.user.username if log.user else 'Sistema' }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if log.level == 'ERROR' %}bg-danger
+                                            {% elif log.level == 'WARNING' %}bg-warning
+                                            {% else %}bg-info{% endif %}">
+                                            {{ log.level }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>{{ log.message }}</small>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ log.ip_address or 'N/A' }}</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Gráfico de status dos usuários
+    const userStatusCtx = document.getElementById('userStatusChart').getContext('2d');
+    const userStatusChart = new Chart(userStatusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Ativos', 'Inativos', 'Administradores'],
+            datasets: [{
+                data: [{{ active_users }}, {{ inactive_users }}, {{ admin_users }}],
+                backgroundColor: [
+                    'rgba(40, 167, 69, 0.8)',
+                    'rgba(220, 53, 69, 0.8)',
+                    'rgba(255, 193, 7, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(40, 167, 69, 1)',
+                    'rgba(220, 53, 69, 1)',
+                    'rgba(255, 193, 7, 1)'
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Gráfico de atividade
+    const activityCtx = document.getElementById('activityChart').getContext('2d');
+    const activityChart = new Chart(activityCtx, {
+        type: 'line',
+        data: {
+            labels: {{ activity_dates|tojson }},
+            datasets: [{
+                label: 'Logins',
+                data: {{ login_counts|tojson }},
+                borderColor: 'rgba(0, 123, 255, 1)',
+                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                borderWidth: 2,
+                fill: true
+            }, {
+                label: 'Sessões de Estudo',
+                data: {{ study_sessions|tojson }},
+                borderColor: 'rgba(40, 167, 69, 1)',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                borderWidth: 2,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top'
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

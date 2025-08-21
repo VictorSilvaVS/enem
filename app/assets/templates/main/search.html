@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+
+{% block title %}Buscar - Sistema de Estudos ENEM{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-result-card {
+        transition: transform 0.2s;
+        border-left: 4px solid #007bff;
+    }
+    .search-result-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .search-highlight {
+        background-color: #fff3cd;
+        padding: 0.1rem 0.2rem;
+        border-radius: 0.2rem;
+    }
+    .filter-badge {
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .filter-badge:hover {
+        transform: scale(1.05);
+    }
+    .filter-badge.active {
+        background-color: #007bff !important;
+        color: white !important;
+    }
+    .search-input {
+        border-radius: 2rem;
+        padding: 0.75rem 1.5rem;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s;
+    }
+    .search-input:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+    .result-type-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header da busca -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Buscar</li>
+                </ol>
+            </nav>
+            
+            <div class="text-center mb-4">
+                <h1 class="h2 mb-3">Buscar Conteúdo</h1>
+                <p class="text-muted">Encontre materiais de estudo, tópicos e questões</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulário de busca -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="GET" action="{{ url_for('main.search') }}">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white border-end-0">
+                                        <i class="fas fa-search text-muted"></i>
+                                    </span>
+                                    <input type="text" 
+                                           class="form-control search-input border-start-0" 
+                                           name="q" 
+                                           value="{{ query or '' }}"
+                                           placeholder="Digite o que você está procurando..."
+                                           autocomplete="off">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search me-1"></i>
+                                    Buscar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    {% if query %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-filter me-2"></i>
+                        Filtros
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Tipo de conteúdo -->
+                    <div class="mb-3">
+                        <h6 class="mb-2">Tipo de Conteúdo:</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="badge filter-badge bg-secondary" onclick="toggleFilter('type', 'all')" id="filter-type-all">
+                                Todos
+                            </span>
+                            <span class="badge filter-badge bg-outline-primary" onclick="toggleFilter('type', 'material')" id="filter-type-material">
+                                Materiais
+                            </span>
+                            <span class="badge filter-badge bg-outline-success" onclick="toggleFilter('type', 'topic')" id="filter-type-topic">
+                                Tópicos
+                            </span>
+                            <span class="badge filter-badge bg-outline-warning" onclick="toggleFilter('type', 'question')" id="filter-type-question">
+                                Questões
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- Área do conhecimento -->
+                    <div class="mb-3">
+                        <h6 class="mb-2">Área do Conhecimento:</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="badge filter-badge bg-secondary" onclick="toggleFilter('area', 'all')" id="filter-area-all">
+                                Todas
+                            </span>
+                            <span class="badge filter-badge bg-outline-primary" onclick="toggleFilter('area', 'linguagens')" id="filter-area-linguagens">
+                                Linguagens
+                            </span>
+                            <span class="badge filter-badge bg-outline-success" onclick="toggleFilter('area', 'humanas')" id="filter-area-humanas">
+                                Ciências Humanas
+                            </span>
+                            <span class="badge filter-badge bg-outline-warning" onclick="toggleFilter('area', 'natureza')" id="filter-area-natureza">
+                                Ciências da Natureza
+                            </span>
+                            <span class="badge filter-badge bg-outline-danger" onclick="toggleFilter('area', 'matematica')" id="filter-area-matematica">
+                                Matemática
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- Nível de dificuldade -->
+                    <div>
+                        <h6 class="mb-2">Nível de Dificuldade:</h6>
+                        <div class="d-flex flex-wrap gap-2">
+                            <span class="badge filter-badge bg-secondary" onclick="toggleFilter('difficulty', 'all')" id="filter-difficulty-all">
+                                Todos
+                            </span>
+                            <span class="badge filter-badge bg-outline-success" onclick="toggleFilter('difficulty', 'facil')" id="filter-difficulty-facil">
+                                Fácil
+                            </span>
+                            <span class="badge filter-badge bg-outline-warning" onclick="toggleFilter('difficulty', 'medio')" id="filter-difficulty-medio">
+                                Médio
+                            </span>
+                            <span class="badge filter-badge bg-outline-danger" onclick="toggleFilter('difficulty', 'dificil')" id="filter-difficulty-dificil">
+                                Difícil
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Resultados da busca -->
+    {% if query %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-search me-2"></i>
+                        Resultados da Busca
+                    </h5>
+                    <span class="badge bg-primary">{{ results|length }} resultado(s)</span>
+                </div>
+                <div class="card-body">
+                    {% if results %}
+                        <div class="row">
+                            {% for result in results %}
+                            <div class="col-md-6 col-lg-4 mb-3 search-result-item" 
+                                 data-type="{{ result.type }}" 
+                                 data-area="{{ result.area }}" 
+                                 data-difficulty="{{ result.difficulty }}">
+                                <div class="card search-result-card h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <span class="badge result-type-badge 
+                                                {% if result.type == 'material' %}bg-primary
+                                                {% elif result.type == 'topic' %}bg-success
+                                                {% else %}bg-warning{% endif %}">
+                                                {% if result.type == 'material' %}Material
+                                                {% elif result.type == 'topic' %}Tópico
+                                                {% else %}Questão{% endif %}
+                                            </span>
+                                            <small class="text-muted">{{ result.area }}</small>
+                                        </div>
+                                        
+                                        <h6 class="card-title">{{ result.title|highlight_search(query) }}</h6>
+                                        
+                                        {% if result.description %}
+                                        <p class="card-text text-muted small">
+                                            {{ result.description|highlight_search(query) }}
+                                        </p>
+                                        {% endif %}
+                                        
+                                        <div class="d-flex justify-content-between align-items-center mt-3">
+                                            <small class="text-muted">
+                                                <i class="fas fa-book me-1"></i>
+                                                {{ result.subject }}
+                                            </small>
+                                            {% if result.difficulty %}
+                                            <span class="badge bg-secondary">{{ result.difficulty|title }}</span>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="mt-3">
+                                            <a href="{{ result.url }}" class="btn btn-outline-primary btn-sm">
+                                                <i class="fas fa-eye me-1"></i>
+                                                Ver Detalhes
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nenhum resultado encontrado</h5>
+                            <p class="text-muted">Tente usar termos diferentes ou verificar a ortografia.</p>
+                            
+                            <div class="mt-4">
+                                <h6>Sugestões:</h6>
+                                <ul class="list-unstyled">
+                                    <li><i class="fas fa-check text-success me-2"></i>Use palavras-chave mais específicas</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>Tente sinônimos dos termos</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>Verifique se não há erros de digitação</li>
+                                </ul>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Sugestões de busca -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        Sugestões de Busca
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-book me-2 text-primary"></i>Matérias Populares</h6>
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                <span class="badge bg-outline-primary" onclick="searchTerm('Matemática')">Matemática</span>
+                                <span class="badge bg-outline-success" onclick="searchTerm('História')">História</span>
+                                <span class="badge bg-outline-warning" onclick="searchTerm('Biologia')">Biologia</span>
+                                <span class="badge bg-outline-danger" onclick="searchTerm('Física')">Física</span>
+                                <span class="badge bg-outline-info" onclick="searchTerm('Química')">Química</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-tags me-2 text-success"></i>Conceitos Importantes</h6>
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                <span class="badge bg-outline-secondary" onclick="searchTerm('Funções')">Funções</span>
+                                <span class="badge bg-outline-secondary" onclick="searchTerm('Genética')">Genética</span>
+                                <span class="badge bg-outline-secondary" onclick="searchTerm('Segunda Guerra')">Segunda Guerra</span>
+                                <span class="badge bg-outline-secondary" onclick="searchTerm('Gramática')">Gramática</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-chart-line me-2 text-warning"></i>Áreas do ENEM</h6>
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                <span class="badge bg-outline-primary" onclick="searchTerm('Linguagens')">Linguagens</span>
+                                <span class="badge bg-outline-success" onclick="searchTerm('Ciências Humanas')">Ciências Humanas</span>
+                                <span class="badge bg-outline-warning" onclick="searchTerm('Ciências da Natureza')">Ciências da Natureza</span>
+                                <span class="badge bg-outline-danger" onclick="searchTerm('Matemática')">Matemática</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-question-circle me-2 text-info"></i>Tipos de Conteúdo</h6>
+                            <div class="d-flex flex-wrap gap-2 mb-3">
+                                <span class="badge bg-outline-primary" onclick="searchTerm('material')">Materiais</span>
+                                <span class="badge bg-outline-success" onclick="searchTerm('tópico')">Tópicos</span>
+                                <span class="badge bg-outline-warning" onclick="searchTerm('questão')">Questões</span>
+                                <span class="badge bg-outline-info" onclick="searchTerm('quiz')">Quizzes</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Filtros ativos
+    let activeFilters = {
+        type: 'all',
+        area: 'all',
+        difficulty: 'all'
+    };
+    
+    // Alternar filtro
+    function toggleFilter(filterType, value) {
+        // Atualizar filtro ativo
+        activeFilters[filterType] = value;
+        
+        // Atualizar aparência dos badges
+        updateFilterBadges(filterType, value);
+        
+        // Aplicar filtros
+        applyFilters();
+    }
+    
+    // Atualizar aparência dos badges
+    function updateFilterBadges(filterType, value) {
+        // Remover classe active de todos os badges do tipo
+        document.querySelectorAll(`[id^="filter-${filterType}-"]`).forEach(badge => {
+            badge.classList.remove('active');
+        });
+        
+        // Adicionar classe active ao badge selecionado
+        const selectedBadge = document.getElementById(`filter-${filterType}-${value}`);
+        if (selectedBadge) {
+            selectedBadge.classList.add('active');
+        }
+    }
+    
+    // Aplicar filtros
+    function applyFilters() {
+        const items = document.querySelectorAll('.search-result-item');
+        
+        items.forEach(item => {
+            const itemType = item.dataset.type;
+            const itemArea = item.dataset.area;
+            const itemDifficulty = item.dataset.difficulty;
+            
+            let show = true;
+            
+            // Verificar filtro de tipo
+            if (activeFilters.type !== 'all' && itemType !== activeFilters.type) {
+                show = false;
+            }
+            
+            // Verificar filtro de área
+            if (activeFilters.area !== 'all' && itemArea !== activeFilters.area) {
+                show = false;
+            }
+            
+            // Verificar filtro de dificuldade
+            if (activeFilters.difficulty !== 'all' && itemDifficulty !== activeFilters.difficulty) {
+                show = false;
+            }
+            
+            // Mostrar ou ocultar item
+            if (show) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+        
+        // Atualizar contador de resultados
+        updateResultCount();
+    }
+    
+    // Atualizar contador de resultados
+    function updateResultCount() {
+        const visibleItems = document.querySelectorAll('.search-result-item[style*="block"], .search-result-item:not([style*="none"])');
+        const countBadge = document.querySelector('.card-header .badge');
+        if (countBadge) {
+            countBadge.textContent = `${visibleItems.length} resultado(s)`;
+        }
+    }
+    
+    // Buscar termo
+    function searchTerm(term) {
+        const searchInput = document.querySelector('input[name="q"]');
+        searchInput.value = term;
+        searchInput.form.submit();
+    }
+    
+    // Inicializar filtros
+    document.addEventListener('DOMContentLoaded', function() {
+        // Marcar filtros padrão como ativos
+        updateFilterBadges('type', 'all');
+        updateFilterBadges('area', 'all');
+        updateFilterBadges('difficulty', 'all');
+    });
+</script>
+{% endblock %}

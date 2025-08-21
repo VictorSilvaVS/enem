@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Sistema ENEM{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-sun text-warning me-2"></i>
+                        Olá, {{ current_user.first_name }}! Bem-vindo ao seu dashboard.
+                    </h1>
+                    <p class="text-muted mb-0">Continue sua jornada de estudos para o ENEM</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-white-50">Tempo de Estudo</h6>
+                            <h3 class="mb-0 text-white">{{ total_study_time }} min</h3>
+                        </div>
+                        <i class="fas fa-clock fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card-2 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-white-50">Quizzes Realizados</h6>
+                            <h3 class="mb-0 text-white">{{ total_quizzes }}</h3>
+                        </div>
+                        <i class="fas fa-question-circle fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card-3 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-white-50">Materiais Concluídos</h6>
+                            <h3 class="mb-0 text-white">{{ completed_materials }}</h3>
+                        </div>
+                        <i class="fas fa-check-circle fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-3">
+            <div class="card stats-card-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-white-50">Progresso Geral</h6>
+                            <h3 class="mb-0 text-white">
+                                {% if user_progress %}
+                                    {{ "%.1f"|format(user_progress|length * 10) }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </h3>
+                        </div>
+                        <i class="fas fa-chart-line fa-2x text-white-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress by Subject -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        Progresso por Disciplina
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for subject in subjects %}
+                        <div class="col-md-6 col-lg-3 mb-3">
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-book fa-2x" style="color: {{ subject.color }};"></i>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="mb-1">{{ subject.name }}</h6>
+                                    <div class="progress mb-1" style="height: 8px;">
+                                        <div class="progress-bar" role="progressbar" 
+                                             style="width: {{ subject_progress[subject.name] }}%; background-color: {{ subject.color }};"
+                                             aria-valuenow="{{ subject_progress[subject.name] }}" 
+                                             aria-valuemin="0" aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">{{ "%.1f"|format(subject_progress[subject.name]) }}%</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity and Quick Actions -->
+    <div class="row">
+        <!-- Recent Study Sessions -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history me-2"></i>
+                        Sessões de Estudo Recentes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_sessions %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Disciplina</th>
+                                        <th>Tópico</th>
+                                        <th>Duração</th>
+                                        <th>Data</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for session in recent_sessions %}
+                                    <tr>
+                                        <td>
+                                            <i class="fas fa-book me-2" style="color: {{ session.subject.color }};"></i>
+                                            {{ session.subject.name }}
+                                        </td>
+                                        <td>{{ session.topic.name }}</td>
+                                        <td>
+                                            {% if session.duration_minutes %}
+                                                {{ session.duration_minutes }} min
+                                            {% else %}
+                                                Em andamento
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ session.start_time.strftime('%d/%m/%Y %H:%M') }}</td>
+                                        <td>
+                                            {% if session.completed %}
+                                                <span class="badge bg-success">Concluído</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">Em andamento</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-book-open fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">Nenhuma sessão de estudo registrada ainda.</p>
+                            <a href="{{ url_for('main.subjects') }}" class="btn btn-primary">
+                                <i class="fas fa-play me-2"></i>Começar a Estudar
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="col-lg-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bolt me-2"></i>
+                        Ações Rápidas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-3">
+                        <a href="{{ url_for('main.subjects') }}" class="btn btn-outline-primary">
+                            <i class="fas fa-book me-2"></i>
+                            Ver Disciplinas
+                        </a>
+                        <a href="{{ url_for('main.progress') }}" class="btn btn-outline-success">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Ver Progresso Detalhado
+                        </a>
+                        <a href="{{ url_for('main.search') }}" class="btn btn-outline-info">
+                            <i class="fas fa-search me-2"></i>
+                            Buscar Material
+                        </a>
+                        <a href="{{ url_for('auth.profile') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-user-edit me-2"></i>
+                            Editar Perfil
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Study Tips -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        Dica do Dia
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">
+                        <strong>Estude em intervalos:</strong> Use a técnica Pomodoro - 25 minutos de estudo focado seguidos de 5 minutos de pausa. Isso melhora a concentração e retenção do conteúdo.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-refresh dashboard every 5 minutes
+    setTimeout(function() {
+        location.reload();
+    }, 300000);
+</script>
+{% endblock %}
